@@ -56,18 +56,48 @@ export const auth = betterAuth({
 
             try {
               const { encryptValue } = await import("@/lib/crypto");
-              const encryptedIdToken = await encryptValue(tokens.id_token);
+
+              // 🔄 Store 3 separated cookies for auto-refresh
+              // 1️⃣ ID Token - For Keycloak logout
+              const encryptedIdToken = encryptValue(tokens.id_token);
+
+              // 2️⃣ Access Token - For API backend calls
+              const encryptedAccessToken = encryptValue(tokens.access_token);
+
+              // 3️⃣ Refresh Token - For refreshing expired tokens  
+              const encryptedRefreshToken = encryptValue(tokens.refresh_token);
 
               const cookieStore = await cookies();
-              cookieStore.set("keycloak_id_token_encrypted", encryptedIdToken, {
+
+              // Store ID Token
+              cookieStore.set("keycloak_id_token", encryptedIdToken, {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === "production",
                 sameSite: "lax",
                 path: "/",
                 maxAge: tokens.expires_in,
               });
+
+              // Store Access Token
+              cookieStore.set("keycloak_access_token", encryptedAccessToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: "lax",
+                path: "/",
+                maxAge: tokens.expires_in,
+              });
+
+              // Store Refresh Token
+              cookieStore.set("keycloak_refresh_token", encryptedRefreshToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: "lax",
+                path: "/",
+                maxAge: tokens.refresh_expires_in, // 30 minutes
+              });
+
             } catch (e) {
-              console.error("❌ Error storing encrypted id_token:", e);
+              console.error("❌ Error storing encrypted tokens:", e);
             }
 
             return {
@@ -88,7 +118,7 @@ export const auth = betterAuth({
   session: {
     cookieCache: {
       enabled: true,
-      maxAge: 7 * 24 * 60 * 60,
+      maxAge: 30 * 60, // 30min
       strategy: "jwe",
       refreshCache: true,
     },

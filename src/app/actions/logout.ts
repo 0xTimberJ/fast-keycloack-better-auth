@@ -4,6 +4,7 @@ import { cookies, headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { envVars } from "@/config/env";
 import { revalidatePath } from "next/cache";
+import { getIdToken } from "@/lib/auth-helper";
 
 async function logoutFromKeycloak(idToken: string) {
   try {
@@ -24,32 +25,21 @@ async function logoutFromKeycloak(idToken: string) {
   }
 }
 
-async function getIdToken(): Promise<string | null> {
-  try {
-    const cookieStore = await cookies();
-    const encryptedCookie = cookieStore.get("keycloak_id_token_encrypted");
-
-    if (!encryptedCookie?.value) {
-      return null;
-    }
-
-    const { decryptValue } = await import("@/lib/crypto");
-    return decryptValue(encryptedCookie.value);
-  } catch (error) {
-    console.error("Error retrieving id_token:", error);
-    return null;
-  }
-}
-
 export async function logout() {
+  const cookieStore = await cookies();
+  const allCookies = cookieStore.getAll();
   try {
     const idToken = await getIdToken();
 
     if (idToken) {
       await logoutFromKeycloak(idToken);
 
-      const cookieStore = await cookies();
-      cookieStore.delete("keycloak_id_token_encrypted");
+      // Delete Keycloak cookies (id_token, access_token, refresh_token)
+      allCookies.forEach((cookie) => {
+        if (cookie.name.startsWith("keycloak_")) {
+          cookieStore.delete(cookie.name);
+        }
+      });
     } else {
       console.warn("⚠️ No id_token found, skipping Keycloak logout");
     }
@@ -62,10 +52,6 @@ export async function logout() {
     headers: await headers(),
   });
 
-  // Get all cookies
-  const cookieStore = await cookies();
-  const allCookies = cookieStore.getAll();
-
   // Delete all better-auth related cookies
   allCookies.forEach((cookie) => {
     if (cookie.name.startsWith("better-auth.")) {
@@ -75,3 +61,4 @@ export async function logout() {
 
   revalidatePath("/");
 }
+

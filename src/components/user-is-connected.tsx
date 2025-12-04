@@ -1,10 +1,12 @@
 "use client";
 
 import { signOut, useSession } from "@/lib/auth-client";
-import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "./ui/card";
 import { Button } from "./ui/button";
 import { logout } from "@/app/actions/logout";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+
 interface User {
   id: string;
   name: string;
@@ -54,6 +56,10 @@ export const UserIsConnected = ({ initialUser }: UserIsConnectedProps) => {
             <p>No user data available.</p>
           )}
         </CardContent>
+
+        <CardFooter>
+          <Link href="/test-tokens">Test tokens</Link>
+        </CardFooter>
       </Card>
     </div>
   );
