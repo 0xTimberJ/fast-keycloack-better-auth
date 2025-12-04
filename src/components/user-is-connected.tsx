@@ -4,8 +4,7 @@ import { signOut, useSession } from "@/lib/auth-client";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { logout } from "@/app/actions/logout";
-import { authClient } from "@/lib/auth-client";
-
+import { useRouter } from "next/navigation";
 interface User {
   id: string;
   name: string;
@@ -18,24 +17,23 @@ interface UserIsConnectedProps {
 
 export const UserIsConnected = ({ initialUser }: UserIsConnectedProps) => {
   const { data } = useSession(); // Client-side session data
+  const router = useRouter();
+  const handleLogout = () => {
+    logout();
+    router.refresh();
+  };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen">
+    <div className="flex flex-col items-center justify-center min-h-screen p-6">
       <Card>
         <CardHeader className="flex justify-between items-center">
           <CardTitle>Client-side Session Data:</CardTitle>
           <Button onClick={() => signOut()} className="ml-auto">
             Logout with client side
           </Button>
-          <Button onClick={logout}>Logout with server side</Button>
+          <Button onClick={handleLogout}>Logout with server side</Button>
         </CardHeader>
         <CardContent>
-          <pre>
-            <code>
-              {JSON.stringify(data, null, 2)}
-            </code>
-          </pre>
-
           {initialUser && (
             <>
               <h2 className="text-xl font-bold">Server-side User Data (from props):</h2>

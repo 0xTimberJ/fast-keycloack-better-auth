@@ -1,6 +1,8 @@
 import { betterAuth } from "better-auth";
 import { genericOAuth } from "better-auth/plugins";
 import { envVars } from "@/config/env";
+import { cookies } from "next/headers";
+
 export const auth = betterAuth({
   baseURL: envVars.BETTER_AUTH_URL,
   secret: envVars.BETTER_AUTH_SECRET,
@@ -52,13 +54,31 @@ export const auth = betterAuth({
 
             const tokens = await response.json();
 
-            console.log("✅ OAuth tokens received", tokens);
+            try {
+              const { encryptValue } = await import("@/lib/crypto");
+              const encryptedIdToken = await encryptValue(tokens.id_token);
+
+              const cookieStore = await cookies();
+              cookieStore.set("keycloak_id_token_encrypted", encryptedIdToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: "lax",
+                path: "/",
+                maxAge: tokens.expires_in,
+              });
+            } catch (e) {
+              console.error("❌ Error storing encrypted id_token:", e);
+            }
+
             return {
               accessToken: tokens.access_token,
               refreshToken: tokens.refresh_token,
+              idToken: tokens.id_token,
               accessTokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
+              refreshTokenExpiresAt: tokens.refresh_expires_in
+                ? new Date(Date.now() + tokens.refresh_expires_in * 1000)
+                : undefined,
               scopes: tokens.scope?.split(" ") ?? [],
-              raw: { id_token: tokens.id_token },
             };
           },
         },
@@ -68,14 +88,14 @@ export const auth = betterAuth({
   session: {
     cookieCache: {
       enabled: true,
-      maxAge: 60 * 5, // 5 minutes
-      strategy: "jwt",
-      refreshCache: {
-        updateAge: 60 * 5, // 5 minutes in seconds
-      },
+      maxAge: 7 * 24 * 60 * 60,
+      strategy: "jwe",
+      refreshCache: true,
     },
-    expiresIn: 60 * 60 * 24, // 24 hours in seconds
-    updateAge: 60 * 5, // 5 minutes in seconds
+  },
+  account: {
+    storeStateStrategy: "cookie",
+    storeAccountCookie: true,
   },
   trustedOrigins: [envVars.BETTER_AUTH_URL],
 });
